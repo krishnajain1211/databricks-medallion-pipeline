@@ -50,7 +50,7 @@ The submission is simultaneously a working pipeline AND an evidence portfolio of
 - FR-06: Document data generation decisions in `src/data_generation/DATA_GENERATION_NOTES.md`, with one section per issue category (thirteen sections total — see section 4 for proposed structure).
 
 **Bronze Layer**
-- FR-07: Read all three CSVs from Unity Catalog Volumes into Databricks (canonical path: `/Volumes/main/ecommerce_medallion/raw_data/`).
+- FR-07: Read all three CSVs from Unity Catalog Volumes into Databricks (canonical path: `/Volumes/workspace/ecommerce_medallion/raw_data/`).
 - FR-08: Create three Bronze Delta tables (`bronze_customers`, `bronze_orders`, `bronze_products`) with raw, unchanged data.
 - FR-09: Handle schema inference and explicit data-type mapping.
 - FR-10: Log ingestion metadata per run: row count, source file path, ingestion timestamp.
@@ -195,9 +195,9 @@ The template in section 9 lists Completeness, Uniqueness, and Referential Integr
 
 **A-13 — `total_amount` consistency (now explicitly seeded):** `generate_sample_data.py` will seed 40 rows in `orders.csv` where `total_amount ≠ quantity × unit_price` by a deliberate non-zero delta (FR-05c). These rows are valid in all other respects (positive quantity, positive price) and are the primary test cases for `05_quality_business_logic.py`. The check flags `FAILED_BUSINESS_LOGIC` on any row where `abs(total_amount − quantity × unit_price) > 0.01` (a small tolerance for floating-point rounding). This check is in addition to the four named quality checks and does not affect the acceptance criteria count (A-01).
 
-**A-14 — Data file paths (resolved OQ-02):** Databricks Free Edition uses Unity Catalog Volumes as the native, production-supported storage layer for unmanaged files. Legacy `dbfs:/FileStore/...` paths are not used. All CSV source files are staged at `/Volumes/main/ecommerce_medallion/raw_data/` (e.g., `/Volumes/main/ecommerce_medallion/raw_data/customers.csv`) before Bronze ingestion. A single `BASE_VOLUME_PATH` configuration constant at the top of each ingest script keeps the path swappable without touching transform logic. This is the current Free Edition-native pattern and reads correctly in a production design review.
+**A-14 — Data file paths (resolved OQ-02):** Databricks Free Edition uses Unity Catalog Volumes as the native, production-supported storage layer for unmanaged files. Legacy `dbfs:/FileStore/...` paths are not used. All CSV source files are staged at `/Volumes/workspace/ecommerce_medallion/raw_data/` (e.g., `/Volumes/workspace/ecommerce_medallion/raw_data/customers.csv`) before Bronze ingestion. A single `BASE_VOLUME_PATH` configuration constant at the top of each ingest script keeps the path swappable without touching transform logic. This is the current Free Edition-native pattern and reads correctly in a production design review.
 
-**A-15 — `generate_sample_data.py` runtime:** This script runs locally (not on Databricks) and uses `pandas` + `faker` to generate the CSVs. It does not require PySpark. The generated files are committed to `data/` and uploaded to the Unity Catalog Volume path (`/Volumes/main/ecommerce_medallion/raw_data/`) before Bronze ingestion runs.
+**A-15 — `generate_sample_data.py` runtime:** This script runs locally (not on Databricks) and uses `pandas` + `faker` to generate the CSVs. It does not require PySpark. The generated files are committed to `data/` and uploaded to the Unity Catalog Volume path (`/Volumes/workspace/ecommerce_medallion/raw_data/`) before Bronze ingestion runs.
 
 **A-16 — Null handling precedence:** When multiple checks could flag the same row (e.g., both completeness and referential integrity), the `quality_check_result` column lists all applicable failure codes (A-10). No precedence hierarchy — all failures are recorded.
 
@@ -396,7 +396,7 @@ After every significant exchange (new script, new quality check, a debugging ses
 ---
 
 ### Phase 2 — Bronze Layer (2–3 hours)
-**What:** Write `01_ingest_customers.py`, `02_ingest_orders.py`, `03_ingest_products.py`, and `ingest_all.py`. Write `database/schema.sql` with Bronze CREATE TABLE statements using the three-level Unity Catalog namespace (`main.ecommerce_medallion.<table>`). Write `database/setup-notes.md`. Upload CSVs to `/Volumes/main/ecommerce_medallion/raw_data/`, run ingestion notebooks, verify row counts match source CSVs. Log in `ai-prompts/bronze-layer.md`.
+**What:** Write `01_ingest_customers.py`, `02_ingest_orders.py`, `03_ingest_products.py`, and `ingest_all.py`. Write `database/schema.sql` with Bronze CREATE TABLE statements using the three-level Unity Catalog namespace (`workspace.ecommerce_medallion.<table>`). Write `database/setup-notes.md`. Upload CSVs to `/Volumes/workspace/ecommerce_medallion/raw_data/`, run ingestion notebooks, verify row counts match source CSVs. Log in `ai-prompts/bronze-layer.md`.
 
 **Done looks like:** Three Bronze Delta tables exist in Databricks. Row counts match the source CSVs exactly. Ingestion metadata table shows timestamp and file path. Schema SQL can reproduce the tables from scratch.
 
@@ -493,7 +493,7 @@ Databricks Community Edition was retired January 1, 2026. The target environment
 ---
 
 **OQ-02 — RESOLVED: Data file paths**
-DBFS `FileStore` paths are not used. The canonical data path is Unity Catalog Volumes: `/Volumes/main/ecommerce_medallion/raw_data/`. See A-14 for full details and rationale.
+DBFS `FileStore` paths are not used. The canonical data path is Unity Catalog Volumes: `/Volumes/workspace/ecommerce_medallion/raw_data/`. See A-14 for full details and rationale.
 
 ---
 
@@ -512,11 +512,11 @@ The two-tier split means Tier 1 is always runnable by a reviewer with only Pytho
 
 **OQ-05 — RESOLVED: Unity Catalog three-level namespace**
 Unity Catalog's three-level namespace (`catalog.schema.table`) is a constraint of Free Edition, not a choice. Naming convention locked in:
-- **Catalog:** `main` (the default Free Edition catalog; no custom catalog creation required)
+- **Catalog:** `workspace` (the Free Edition default catalog confirmed in the Databricks workspace)
 - **Schema:** `ecommerce_medallion` (single schema — layers are distinguished by table-name prefix)
 - **Tables:** `bronze_customers`, `bronze_orders`, `bronze_products`, `silver_customers`, `silver_orders`, `gold_sales_by_product`, etc.
-- **Full reference example:** `main.ecommerce_medallion.bronze_customers`
-- **Volume path:** `/Volumes/main/ecommerce_medallion/raw_data/`
+- **Full reference example:** `workspace.ecommerce_medallion.bronze_customers`
+- **Volume path:** `/Volumes/workspace/ecommerce_medallion/raw_data/`
 
 All scripts, SQL, and `database/schema.sql` will use this three-part naming throughout.
 

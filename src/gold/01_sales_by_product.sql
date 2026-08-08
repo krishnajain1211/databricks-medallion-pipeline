@@ -1,0 +1,12 @@
+-- Purpose : Build gold_sales_by_product aggregation table.
+--           Summarises total orders, total revenue, and average order value
+--           per product, sourced from Silver PASSED rows only.
+-- Inputs  : workspace.ecommerce_medallion.silver_orders    (quality_check_result = 'PASSED')
+--           workspace.ecommerce_medallion.silver_customers  (for joins if needed)
+--           workspace.ecommerce_medallion.bronze_products   (for product_name, category)
+-- Outputs : workspace.ecommerce_medallion.gold_sales_by_product (Delta table)
+-- Columns : product_id, product_name, category,
+--           total_orders, total_revenue, avg_order_value
+-- Phase   : Phase 4 — Gold Layer
+
+-- ── Implementation will be added in Phase 4 ─────────────────────────────────

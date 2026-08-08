@@ -1,0 +1,17 @@
+-- Purpose : Build gold_customer_segmentation aggregation table.
+--           Classifies customers into behaviour segments and summarises
+--           revenue metrics per segment. Sourced from Silver PASSED rows only.
+-- Inputs  : workspace.ecommerce_medallion.silver_orders    (quality_check_result = 'PASSED')
+--           workspace.ecommerce_medallion.silver_customers (quality_check_result = 'PASSED')
+-- Outputs : workspace.ecommerce_medallion.gold_customer_segmentation (Delta table)
+-- Columns : segment_type (High-Value / Repeat / One-Time / Inactive),
+--           customer_count, avg_revenue, total_revenue
+-- Phase   : Phase 4 — Gold Layer
+
+-- ── Implementation will be added in Phase 4 ─────────────────────────────────
+--
+-- Planned segmentation logic (to be confirmed in Phase 4):
+--   High-Value : total_revenue > [threshold TBD] OR lifetime_value > [threshold TBD]
+--   Repeat     : total_orders >= 2 AND NOT High-Value
+--   One-Time   : total_orders = 1
+--   Inactive   : customer exists in silver_customers but has 0 PASSED orders

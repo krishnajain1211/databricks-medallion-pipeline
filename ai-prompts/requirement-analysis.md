@@ -296,3 +296,84 @@ scaffolding._
 **FINAL DECISION:** Logging workflow established and active from this point forward.
 `ai-prompts/requirement-analysis.md` initialised with all five planning-phase
 entries.
+
+---
+
+## Prompt 6: Phase 0 — Full repository scaffold
+
+**PROMPT SENT:**
+"We're moving from planning to execution. Read requirements-analysis.md and
+ai-prompts/requirement-analysis.md in full — that's our locked plan. Scaffold
+the complete repository structure exactly as specified in Section 4 of
+requirements-analysis.md, including: all root-level .md files as stubs with a
+heading and one-line placeholder; src/ tree as empty placeholder .py/.sql files
+with header comments from FR items; data/, database/, tests/ folders; remaining
+ai-prompts/*.md files as stubs with standard header; tool-specific/cursor-workflow/
+files (project-context.md, spec.md, task-breakdown.md) with real, specific content
+based on our actual project setup (catalog 'workspace', schema 'ecommerce_medallion',
+volume 'raw_data'). Do not write any pipeline logic yet — structure only."
+
+**AI RESPONSE SUMMARY:**
+Created 41 new files across the full repo tree (plus updated README.md from stub).
+Key decisions made:
+- All Python placeholder files given module-level docstrings with Purpose, Inputs,
+  Outputs, Phase, and Run fields — satisfying the "every script has a docstring"
+  hard rule from day one, before implementation
+- SQL placeholder files given equivalent header comment blocks
+- `data-quality-strategy.md` scaffolded with all four checks (+ bonus Business Logic)
+  already filled in, since the strategy was fully defined in planning
+- `DATA_GENERATION_NOTES.md` scaffolded with a thirteen-section skeleton and a summary
+  table matching the 700-row defect breakdown
+- `tests/test_data_quality.py` scaffolded with all 13 planned test function stubs
+  and their assertion logic described in comments — making Phase 6 a fill-in exercise,
+  not a design exercise
+- `database/schema.sql` scaffolded with the schema CREATE statement already written
+  (the one DDL statement that is environment-independent); table DDL deferred to
+  Phases 2–4 when actual column lists are confirmed
+- `data-model.md` scaffolded with full source schemas, Unity Catalog naming table,
+  and the layer-by-layer row count table pre-populated with known values (TBD entries
+  for Phase 2 onward)
+- All three `tool-specific/cursor-workflow/` files written with real, specific content:
+  `project-context.md` documents the exact context-provision strategy; `spec.md` is a
+  condensed, sharable architecture spec for Cursor sessions; `task-breakdown.md` has
+  each of the eight phases written as actual Cursor task prompts
+- `catalog = workspace` (as specified) used throughout all new files
+- Post-scaffolding verification: `Get-ChildItem -Recurse -File` confirmed 49 files
+  in tree (excluding `.git`)
+
+**Catalog inconsistency caught post-scaffolding:**
+After completing the scaffold, Cursor noticed that `requirements-analysis.md`
+(written in earlier planning sessions) still used `main` as the catalog name in 9
+locations (OQ-05, A-14, A-15, FR-07, Phase 2 description, OQ-02 resolution).
+`data-model.md` was already correct (`workspace` was used when it was written in
+this session). Cursor flagged this proactively rather than leaving a silent
+inconsistency between the plan document and the actual scaffolded files.
+
+**YOUR EVALUATION:**
+✓ Accepted:
+- Full scaffold: all 41 new files created, matching Section 4 tree exactly
+- Docstring-first approach for all Python stubs — correct, enforces the hard rule
+  from day one
+- Pre-filled `data-quality-strategy.md` — correct, strategy was already locked
+- Thirteen-section `DATA_GENERATION_NOTES.md` skeleton with summary table — correct
+- All three `tool-specific/cursor-workflow/` files with real content — accepted,
+  specifically the task-breakdown.md phrasing of each phase as an actual Cursor
+  prompt is the format we'll use going forward
+- `workspace` catalog used correctly in all new files
+- Catalog inconsistency catch: flagging `main` vs `workspace` drift proactively
+  was correct — this was a real documentation error that needed fixing before commit
+
+✓ Corrections applied (same session):
+- `requirements-analysis.md`: 9 occurrences of `main` catalog replaced with
+  `workspace` (7 path occurrences + 2 table-reference occurrences + 1 catalog
+  label in OQ-05)
+
+✗ Changed:
+- None beyond the catalog fix above
+
+✗ Rejected:
+- None
+
+**FINAL DECISION:** Phase 0 scaffold complete. All 41 new files created;
+`requirements-analysis.md` updated to be fully consistent on `workspace` catalog;
+`data-model.md` was already correct. Ready to tag `phase-0-foundation` and commit.

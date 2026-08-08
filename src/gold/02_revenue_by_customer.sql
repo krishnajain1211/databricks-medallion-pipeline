@@ -1,0 +1,11 @@
+-- Purpose : Build gold_revenue_by_customer aggregation table.
+--           Summarises total orders, total revenue, average order value, and
+--           actual lifetime value per customer, sourced from Silver PASSED rows.
+-- Inputs  : workspace.ecommerce_medallion.silver_orders    (quality_check_result = 'PASSED')
+--           workspace.ecommerce_medallion.silver_customers (quality_check_result = 'PASSED')
+-- Outputs : workspace.ecommerce_medallion.gold_revenue_by_customer (Delta table)
+-- Columns : customer_id, customer_name, customer_segment,
+--           total_orders, total_revenue, avg_order_value, lifetime_value_actual
+-- Phase   : Phase 4 — Gold Layer
+
+-- ── Implementation will be added in Phase 4 ─────────────────────────────────
