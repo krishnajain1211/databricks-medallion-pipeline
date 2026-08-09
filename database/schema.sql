@@ -62,12 +62,49 @@ USING DELTA
 COMMENT 'Append-only log of every Bronze ingestion run: table name, source path, row count, timestamp';
 
 -- ── SILVER TABLES ────────────────────────────────────────────────────────────
+-- Mirror Bronze schemas exactly, plus a quality_check_result STRING column.
+-- All rows preserved (FR-18); quality_check_result is 'PASSED' or a
+-- comma-delimited list of failure codes (A-10).
 
--- Implementation will be added in Phase 3.
--- Planned tables (mirror Bronze schema + quality_check_result STRING column):
---   workspace.ecommerce_medallion.silver_customers
---   workspace.ecommerce_medallion.silver_orders
---   workspace.ecommerce_medallion.silver_quality_metrics
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.silver_customers (
+    customer_id           INT,
+    customer_name         STRING,
+    email                 STRING,
+    country               STRING,
+    signup_date           DATE,
+    customer_segment      STRING,
+    lifetime_value        DECIMAL(10, 2),
+    quality_check_result  STRING    NOT NULL
+)
+USING DELTA
+COMMENT 'Silver: customers with quality_check_result stamped on every row';
+
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.silver_orders (
+    order_id              INT,
+    customer_id           INT,
+    order_date            DATE,
+    product_id            INT,
+    quantity              INT,
+    unit_price            DECIMAL(10, 2),
+    total_amount          DECIMAL(12, 2),
+    order_status          STRING,
+    payment_date          DATE,
+    quality_check_result  STRING    NOT NULL
+)
+USING DELTA
+COMMENT 'Silver: orders with quality_check_result stamped on every row';
+
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.silver_quality_metrics (
+    check_name    STRING     NOT NULL,
+    entity        STRING     NOT NULL,
+    total_rows    BIGINT     NOT NULL,
+    rows_passed   BIGINT     NOT NULL,
+    rows_failed   BIGINT     NOT NULL,
+    pass_rate_pct DOUBLE     NOT NULL,
+    run_timestamp TIMESTAMP  NOT NULL
+)
+USING DELTA
+COMMENT 'Per-check pass rates for the most recent Silver pipeline run';
 
 -- ── GOLD TABLES ──────────────────────────────────────────────────────────────
 
