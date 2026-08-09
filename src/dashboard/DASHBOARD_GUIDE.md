@@ -176,6 +176,11 @@ Recommended layout (drag tiles to resize and position):
 3. Copy the dashboard URL and include it in `candidate-info.md` under the
    "Dashboard URL" field.
 
+**Dashboard URL (recorded 2026-08-09):**
+https://dbc-dee8a4d8-a132.cloud.databricks.com/dashboardsv3/01f193f3b5b01aa793411e6f3897ebd2/published?o=7474645374027427
+
+**Dashboard name:** Ecommerce Medallion Pipeline — Sales & Data Quality Dashboard
+
 ---
 
 ## Refreshing the Dashboard

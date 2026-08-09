@@ -55,4 +55,27 @@ ask if anything's ambiguous; log to `ai-prompts/dashboard.md`.
   but had no FR-assigned visualization. Added as a line chart bonus tile since
   the data is there and the guide explains it clearly.
 
-**Evaluation:** Accepted — pending Databricks dashboard creation.
+**Evaluation:** Accepted and verified — dashboard live in Databricks (2026-08-09).
+
+**Live URL:**
+https://dbc-dee8a4d8-a132.cloud.databricks.com/dashboardsv3/01f193f3b5b01aa793411e6f3897ebd2/published?o=7474645374027427
+
+**Confirmed tiles from screenshot:**
+- Tile 1 — Top 10 Products by Revenue (bar chart, colour by category). Five
+  categories visible in legend: Clothing, Food & Beverage, Health & Beauty,
+  Sports, Toys (light blue). ✓
+- Tile 2 — Customer Revenue Distribution (histogram). Five labeled bins visible:
+  1.33k, 4.86k, 3.07k, 678, and a small tail — confirming the distribution
+  concentrates between $2k–$8k total revenue per customer. ✓
+- Tile 3 — Customer Segmentation (donut chart). High-Value is the dominant
+  segment (large blue arc); Repeat, One-Time, and Inactive are smaller slices.
+  Legend confirms all four segment_type values rendered. ✓
+- Tile 4 — Actual chart title in Databricks: **"Data Quality Checks — Rows
+  Failed by Type"** (shows row-failed counts, not pass rates). Grouped bar
+  by entity (customers = teal, orders = yellow/orange). Five check groups on
+  x-axis: business_logic, completeness, referential_integrity, type_validation,
+  uniqueness. ✓
+- Tile 5 — Yearly Revenue Trend (line chart). X-axis spans 2022–2026. Line
+  peaks around 2024–2025 and drops sharply at 2026 — this is because 2026 is
+  a **partial year in the generated data** (synthetic orders do not cover a
+  full 12 months of 2026), not a data quality or distribution artefact. ✓
