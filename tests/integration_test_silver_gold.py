@@ -181,10 +181,11 @@ _check("silver_orders    PASSED count  (100,000 − 580 failures)", passed_ord, 
 # COMMAND ----------
 
 # ── 6. Gold table row count sanity ────────────────────────────────────────────
-# gold_sales_by_product     : ≤ 500  (at most one row per product; all 500 products have orders)
+# gold_sales_by_product     : ≤ 500  (at most one row per product)
 # gold_revenue_by_customer  : ≈ 9,980+ (all unique non-NULL customer_ids in silver_customers)
-# gold_daily_weekly_trends  : daily rows ≈ 365 (1 year of order dates)
-# gold_customer_segmentation: exactly 4 rows (one per segment_type)
+# gold_daily_weekly_trends  : exactly 1,923 — verified against real Databricks data
+#                             (1,682 daily rows + 241 weekly rows, SEED=42 is deterministic)
+# gold_customer_segmentation: exactly 4 rows (one per segment_type, always)
 
 print("\n── Section 6: Gold table row count sanity")
 
@@ -193,8 +194,7 @@ n_cust    = _tbl("gold_revenue_by_customer").count()
 n_trends  = _tbl("gold_daily_weekly_trends").count()
 n_seg     = _tbl("gold_customer_segmentation").count()
 
-# Use range bounds — exact counts depend on whether all 500 products appear in PASSED orders
-# and how many unique customer_ids exist in silver_customers.
+# Range bounds for tables whose exact size varies by data distribution at runtime.
 if not (1 <= n_product <= 500):
     _failures.append(f"gold_sales_by_product row count out of range: expected 1–500, got {n_product}")
     print(f"  [FAIL]  gold_sales_by_product row count  —  expected 1–500, got {n_product:,}")
@@ -207,13 +207,12 @@ if not (9_000 <= n_cust <= 10_000):
 else:
     print(f"  [PASS]  gold_revenue_by_customer row count  —  {n_cust:,} (within 9,000–10,000)")
 
+# Exact assertions for tables whose row count is fully determined by SEED=42.
 _check("gold_customer_segmentation row count (exactly 4 segment types)", n_seg, 4)
-
-if not (300 <= n_trends <= 800):
-    _failures.append(f"gold_daily_weekly_trends row count out of range: expected 300–800, got {n_trends}")
-    print(f"  [FAIL]  gold_daily_weekly_trends row count  —  expected 300–800, got {n_trends:,}")
-else:
-    print(f"  [PASS]  gold_daily_weekly_trends row count  —  {n_trends:,} (within 300–800)")
+_check(
+    "gold_daily_weekly_trends row count  (1,682 daily + 241 weekly = 1,923, SEED=42)",
+    n_trends, 1_923,
+)
 
 # COMMAND ----------
 

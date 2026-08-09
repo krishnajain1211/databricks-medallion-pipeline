@@ -204,3 +204,52 @@ silently fall through for Spark-collected DECIMAL aggregates. Always use
 `float()` conversion or `numbers.Number` for numeric type guards in Spark test code.
 
 **Evaluation:** Fixed — ALL PASSED confirmed on re-run.
+
+---
+
+## Debugging Entry 2: gold_daily_weekly_trends expected range was wrong (test bug, not pipeline bug)
+
+**Date:** 2026-08-09
+**Phase:** 6 — Testing (Tier 2)
+**Trigger:** User review of integration test Section 6 output against verified Phase 4 data.
+
+**Symptom reported:**
+> Section 6 range for gold_daily_weekly_trends (expected 300–800) is wrong — it
+> was an estimate, not based on real data.  Verified back in Phase 4 that the real
+> count is 1,923 (1,682 daily rows + 241 weekly rows).
+
+**Root cause:**
+
+The range `300–800` in Section 6 was written from first principles ("~365 daily
+dates") without consulting the actual Phase 4 verification data that had already
+been recorded in `ai-prompts/gold-layer.md`. The estimate was off by 2–6× because:
+- The "daily" estimate ignored that order_dates span multiple calendar years
+  (synthetic data goes 2022–2026), not just one year (~365 days)
+- The weekly rows were not accounted for at all in the initial estimate
+
+The pipeline itself was always correct — this was an error in the *test's expected
+value*, not in the data or the pipeline logic.
+
+**Fix applied:**
+
+Replaced the `if not (300 <= n_trends <= 800)` range check with an exact assertion
+using `_check()`:
+```python
+_check(
+    "gold_daily_weekly_trends row count  (1,682 daily + 241 weekly = 1,923, SEED=42)",
+    n_trends, 1_923,
+)
+```
+The exact count (1,923) is deterministic — SEED=42 produces the same order dates
+every run, which produces the same set of distinct calendar days and ISO weeks.
+
+Also updated the Section 6 header comment to document the verified counts.
+
+**Lesson:** Writing an assertion range from an estimate, rather than from real
+observed data, defeats the purpose of the test.  When the pipeline has already been
+run and verified (Phase 4 confirmed the row counts in Databricks), those real values
+should be used as the test's expected values — not reconstructed from memory.
+Checking `ai-prompts/gold-layer.md` before writing Section 6 would have prevented
+this.  Test expected values should be sourced from verified artifacts, not intuition.
+
+**Evaluation:** Fixed — re-run pending (ALL PASSED expected).
