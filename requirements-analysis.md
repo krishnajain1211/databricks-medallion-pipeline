@@ -177,6 +177,20 @@ The template in section 9 lists Completeness, Uniqueness, and Referential Integr
 
 ---
 
+**Gap G-08: Gold customer tables excluded legitimate orders by filtering on customer-level quality_check_result**
+
+*Discovered: 2026-08-09 during Phase 4 — caught by the FR-26 revenue cross-check built into `create_gold_tables.py`.*
+
+The initial implementation of `02_revenue_by_customer.sql` and `04_customer_segmentation.sql` filtered `WHERE silver_customers.quality_check_result = 'PASSED'` before joining to PASSED orders. This silently dropped ~120 customers whose records had record-level defects (NULL email, malformed email, duplicate customer_id) even though those customers' individual orders had passed all order-level quality checks. The result was a $635,295.88 revenue shortfall in `gold_revenue_by_customer` vs. `gold_sales_by_product` — both should sum to the same Silver PASSED total. `gold_sales_by_product` matched exactly because it aggregates by product and never touches the customer table.
+
+**Root cause:** The Silver layer's data quality philosophy (flag bad rows, never delete) means a customer record with a bad email is still a real customer. Their orders are processed and can be perfectly valid. Filtering the Gold *customer dimension* by the customer record's quality_check_result conflated record-level data quality with customer existence — a business logic error, not a data quality rule.
+
+**Resolution:** Replace `WHERE c.quality_check_result = 'PASSED'` with a `ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY customer_id)` CTE that deduplicates `silver_customers` on `customer_id` (collapsing the 20 seeded C-02 duplicate rows to one canonical record) and includes ALL unique customers regardless of their record's quality result. The orders side of the join remains filtered to `quality_check_result = 'PASSED'`. Applied to both `02_revenue_by_customer.sql` and `04_customer_segmentation.sql`.
+
+**Lesson:** Cross-checks like FR-26 should be built into orchestrators from the start — this bug would have gone undetected without the revenue conservation assertion in `create_gold_tables.py`.
+
+---
+
 ## 3. Assumptions and Edge Cases
 
 **A-01 through A-06** are locked assumptions from Gap analysis above.

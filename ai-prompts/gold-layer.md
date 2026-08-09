@@ -80,4 +80,76 @@ two-cell pattern established during Bronze debugging (see `ai-prompts/bronze-lay
 | Revenue conservation | gold_sales_by_product SUM ≈ Silver PASSED SUM | within $5.00 |
 | Revenue conservation | gold_revenue_by_customer SUM ≈ Silver PASSED SUM | within $5.00 |
 
-**Evaluation:** Accepted — pending Databricks run verification.
+**Evaluation:** Accepted with debugging fix applied — see Debugging Entry 1 below.
+
+---
+
+## Debugging Entry 1: Gold revenue cross-check exposed customer-filter bug (G-08)
+
+**Date:** 2026-08-09
+**Phase:** 4 — Gold Layer
+**Trigger:** FR-26 revenue cross-check in `create_gold_tables.py` — built-in assertion
+that `gold_revenue_by_customer` and `gold_sales_by_product` both sum to the Silver
+PASSED total within a $5.00 tolerance.
+
+**Symptom reported:**
+> Gold cross-check (FR-26) failed: `gold_revenue_by_customer` is **$635,295.88 short**
+> of Silver PASSED total, while `gold_sales_by_product` matches exactly.
+
+**Root cause analysis:**
+
+The initial `02_revenue_by_customer.sql` filtered:
+```sql
+WHERE c.quality_check_result = 'PASSED'
+```
+This excluded ~120 customers whose *records* had defects (NULL email C-03, malformed
+email C-04, duplicate customer_id C-02) — even though those customers' individual
+*orders* were fully valid PASSED orders. The Silver layer deliberately keeps all rows
+with bad records flagged, never deletes them. The Gold query was erroneously treating a
+bad customer email as grounds to exclude that customer's entire order history from Gold.
+
+`gold_sales_by_product` matched exactly because it aggregates by product via an INNER
+JOIN to `bronze_products` — it never touches the customer table at all. This asymmetry
+is what made the diagnostic unambiguous: product totals correct, customer totals short
+→ the customer filter was the culprit.
+
+The 20 seeded duplicate customer_id rows (C-02, both copies `FAILED_UNIQUENESS`) added
+an additional risk: without deduplication, a naive removal of the WHERE filter would
+cause both copies of each duplicate customer to join against the same orders, producing
+double-counted revenue.
+
+**Fix applied:**
+
+Replaced the `WHERE quality_check_result = 'PASSED'` filter in both
+`02_revenue_by_customer.sql` and `04_customer_segmentation.sql` with a
+`ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY customer_id)` CTE:
+
+```sql
+WITH customers_deduped AS (
+    SELECT
+        customer_id, customer_name, customer_segment, lifetime_value,
+        ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY customer_id) AS _rn
+    FROM workspace.ecommerce_medallion.silver_customers
+    WHERE customer_id IS NOT NULL
+)
+-- main query: FROM customers_deduped WHERE _rn = 1
+```
+
+This:
+1. Collapses the 20 duplicate C-02 rows to one canonical record per `customer_id`.
+2. Includes ALL unique customers regardless of their record-level `quality_check_result`.
+3. The order side of the join remains `AND o.quality_check_result = 'PASSED'` unchanged.
+
+**Principle confirmed:** In a flagging-not-deleting Silver layer, a customer's *record*
+quality issues (bad email) must never exclude their *transactions* from Gold aggregations.
+The quality_check_result column scopes to the entity it belongs to — order-level for
+orders, customer-level for customer identity questions only.
+
+**Files modified:**
+- `src/gold/02_revenue_by_customer.sql` — CTE deduplication, header comments updated
+- `src/gold/04_customer_segmentation.sql` — same CTE applied to `customer_revenue` CTE
+- `requirements-analysis.md` — Gap G-08 added
+
+**Expected result after re-run:** Both cross-checks PASS, diff < $5.00.
+
+**Evaluation:** Fix confirmed by user — re-run pending.
