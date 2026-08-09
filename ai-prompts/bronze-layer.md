@@ -92,6 +92,56 @@ Three targeted edits applied:
    - Added Step 6 (pipeline run order table: Bronze → Silver → Gold → Dashboard).
    - Upload instructions provided for both UI and Databricks CLI (Option A/B).
 
-**YOUR EVALUATION:** _Pending final review of applied changes._
+**YOUR EVALUATION:** Accepted. All four clarifications confirmed applied correctly.
 
-**FINAL DECISION:** _Pending._
+**FINAL DECISION:** Accepted.
+
+---
+
+## Debugging Entry 1: %run silent failure in ingest_all.py
+
+**OBSERVED SYMPTOM:**
+`ingest_all.py` appeared to run without errors, but `SHOW TABLES` in the
+`ecommerce_medallion` schema returned empty — no Bronze tables were created.
+
+**ROOT CAUSE:**
+In Databricks source-format `.py` files, a cell is treated as a **magic cell**
+only when `# MAGIC` is the **first content line** after the `# COMMAND ----------`
+separator. The original `ingest_all.py` had this structure:
+
+```
+# COMMAND ----------
+
+# ── Step 1: Products ─────────────────────
+           ↑ comment is first content line → entire cell is Python, not magic
+
+# MAGIC %run ./03_ingest_products
+           ↑ treated as a plain Python comment, silently ignored
+```
+
+Databricks fell back to plain IPython `%run` (which runs Python files as scripts,
+not notebooks), so the `spark` global was absent, no Delta writes occurred, and
+no error was raised — the failure was completely silent.
+
+**FIX APPLIED (`src/bronze/ingest_all.py`):**
+Split each label comment and its `%run` into **two separate cells** using an
+additional `# COMMAND ----------`. The `# MAGIC %run` is now the first line of
+its own dedicated cell:
+
+```
+# COMMAND ----------
+
+# ── Step 1: Products (label cell — Python) ───────────────────────────────────
+
+# COMMAND ----------
+
+# MAGIC %run ./03_ingest_products    ← first line of new cell = magic recognised
+```
+
+Same fix applied to all three `%run` calls (products, customers, orders).
+
+**LESSON RECORDED:**
+Any `# MAGIC` command that is not the first content line of its cell is silently
+treated as a Python comment in Databricks source format. The failure mode is
+particularly dangerous because no exception is raised. Always verify with
+`SHOW TABLES` or a `display(spark.table(...))` after the first orchestrator run.

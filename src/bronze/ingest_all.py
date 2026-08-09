@@ -28,6 +28,9 @@ print("─" * 60)
 # COMMAND ----------
 
 # ── Step 1: Products (reference table — smallest file) ───────────────────────
+# Cell above is a label comment; %run must be the FIRST line of its own cell.
+
+# COMMAND ----------
 
 # MAGIC %run ./03_ingest_products
 
@@ -35,11 +38,15 @@ print("─" * 60)
 
 # ── Step 2: Customers ─────────────────────────────────────────────────────────
 
+# COMMAND ----------
+
 # MAGIC %run ./01_ingest_customers
 
 # COMMAND ----------
 
 # ── Step 3: Orders (largest file — run last) ──────────────────────────────────
+
+# COMMAND ----------
 
 # MAGIC %run ./02_ingest_orders
 
