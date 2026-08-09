@@ -139,4 +139,68 @@ Since all 13 defect categories are seeded in non-overlapping index ranges (per A
 intent), each row has exactly one failure code. This means Silver failure counts
 add cleanly without double-counting.
 
-**Evaluation:** Accepted — pending Databricks run verification.
+**Evaluation:** Accepted with one bug fixed — see Debugging Entry 1 below.
+
+---
+
+## Debugging Entry 1: _check() crashed on Decimal type in Section 7 (FR-26)
+
+**Date:** 2026-08-09
+**Phase:** 6 — Testing (Tier 2)
+**Trigger:** Running `integration_test_silver_gold.py` in Databricks.
+
+**Symptom reported:**
+> TypeError: unsupported format string passed to NoneType.__format__
+> crashed on Section 7 (FR-26 revenue cross-check). The three printed SUMs
+> right before the crash were all identical ($54,940,228.41) — so the actual
+> revenue data is correct.
+
+**Root cause:**
+
+`_check()` line 59 computed `diff` conditionally:
+```python
+diff = abs(actual - expected) if isinstance(expected, (int, float)) else None
+```
+Spark's `F.sum()` on a `DECIMAL(14,2)` column returns `decimal.Decimal` in Python
+when collected — **not** `float` or `int`. So `isinstance(expected, (int, float))`
+evaluated to `False` → `diff = None`.
+
+Line 63 then tried to format `diff` with `:.2f` inside the `tolerance > 0` branch:
+```python
+f"... diff={diff:,.2f}"  # ← crashes: NoneType has no :.2f formatting
+```
+Python's `format()` protocol raises `TypeError` when `:,.2f` is applied to `None`.
+
+The data itself was entirely correct (all three revenue totals matched exactly).
+This was purely a type-handling bug in the test helper, not a pipeline bug.
+It was caught because the notebook was actually run, not just code-reviewed.
+
+**Fix applied:**
+
+Two changes to `_check()` in `tests/integration_test_silver_gold.py`:
+
+1. Replace `isinstance` guard with `float()` conversion in a `try/except`:
+```python
+try:
+    diff = abs(float(actual) - float(expected))
+except (TypeError, ValueError):
+    diff = None
+```
+`float(decimal.Decimal("54940228.41"))` works correctly. The try/except handles
+any edge case (NaN, None inputs) without crashing.
+
+2. Guard the format string so `diff:,.2f` is never reached when `diff is None`:
+```python
+if tolerance > 0 and diff is not None:
+    detail = f"expected {expected:,} ± {tolerance:,.2f}, got {actual:,}, diff={diff:,.2f}"
+else:
+    detail = f"expected {expected:,}, got {actual:,}"
+```
+
+**Lesson:** `decimal.Decimal` is not a subclass of `float` or `int` in Python,
+even though it behaves like one for arithmetic. Any helper that checks
+`isinstance(x, (int, float))` to decide whether to compute a numeric diff will
+silently fall through for Spark-collected DECIMAL aggregates. Always use
+`float()` conversion or `numbers.Number` for numeric type guards in Spark test code.
+
+**Evaluation:** Fixed — ALL PASSED confirmed on re-run.

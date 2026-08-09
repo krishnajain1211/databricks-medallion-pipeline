@@ -55,15 +55,28 @@ def _tbl(name: str):
 _failures = []
 
 def _check(label: str, actual, expected, tolerance: float = 0):
-    """Assert actual == expected (within tolerance) and log the result."""
-    diff = abs(actual - expected) if isinstance(expected, (int, float)) else None
-    ok   = diff <= tolerance if diff is not None else (actual == expected)
+    """Assert actual == expected (within tolerance) and log the result.
+
+    Uses float() conversion for diff so that decimal.Decimal values returned
+    by Spark aggregate collect() are handled correctly alongside int and float.
+    Without the cast, isinstance(Decimal, (int, float)) is False → diff=None
+    → the :.2f format spec crashes with TypeError (caught 2026-08-09, testing.md).
+    """
+    try:
+        diff = abs(float(actual) - float(expected))
+    except (TypeError, ValueError):
+        diff = None
+
+    ok     = (diff <= tolerance) if (diff is not None) else (actual == expected)
     status = "PASS" if ok else "FAIL"
-    detail = (
-        f"expected {expected:,} ± {tolerance:,.2f}, got {actual:,}, diff={diff:,.2f}"
-        if tolerance > 0
-        else f"expected {expected:,}, got {actual:,}"
-    )
+
+    if tolerance > 0 and diff is not None:
+        detail = (
+            f"expected {expected:,} ± {tolerance:,.2f}, got {actual:,}, diff={diff:,.2f}"
+        )
+    else:
+        detail = f"expected {expected:,}, got {actual:,}"
+
     print(f"  [{status}]  {label}  —  {detail}")
     if not ok:
         _failures.append(f"{label}: {detail}")
