@@ -107,7 +107,7 @@ All Gold tables source only Silver rows where `quality_check_result = 'PASSED'`.
 | `gold_customer_segmentation` | silver_orders + silver_customers | segment_type, customer_count, avg_revenue, total_revenue |
 
 Segmentation rules (to be finalised in Phase 4):
-- **High-Value**: top revenue tier (threshold TBD from data distribution)
+- **High-Value**: `total_revenue > 5000` (set in Phase 4; documented as tunable in SQL comment)
 - **Repeat**: total_orders ≥ 2, not High-Value
 - **One-Time**: total_orders = 1
 - **Inactive**: in silver_customers but 0 PASSED orders
@@ -120,7 +120,7 @@ Segmentation rules (to be finalised in Phase 4):
 loaded from `data/` CSVs. Asserts >= expected seeded failure count per check.
 Run with: `pytest tests/ -v`
 
-**Tier 2 (Databricks notebook):** `tests/integration_validation.py` — queries
+**Tier 2 (Databricks notebook):** `tests/integration_test_silver_gold.py` — queries
 live Silver and Gold Delta tables and validates row counts and quality distributions.
 
 ---
