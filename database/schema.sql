@@ -107,10 +107,48 @@ USING DELTA
 COMMENT 'Per-check pass rates for the most recent Silver pipeline run';
 
 -- ── GOLD TABLES ──────────────────────────────────────────────────────────────
+-- Aggregation tables sourced from Silver PASSED rows only.
+-- All Gold tables use CREATE OR REPLACE in their own SQL notebooks; the DDL
+-- below is for reference and for pre-creating tables before the first pipeline run.
 
--- Implementation will be added in Phase 4.
--- Planned tables:
---   workspace.ecommerce_medallion.gold_sales_by_product
---   workspace.ecommerce_medallion.gold_revenue_by_customer
---   workspace.ecommerce_medallion.gold_daily_weekly_trends
---   workspace.ecommerce_medallion.gold_customer_segmentation
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.gold_sales_by_product (
+    product_id       INT        NOT NULL,
+    product_name     STRING     NOT NULL,
+    category         STRING     NOT NULL,
+    total_orders     BIGINT     NOT NULL,
+    total_revenue    DECIMAL(14, 2) NOT NULL,
+    avg_order_value  DECIMAL(10, 2) NOT NULL
+)
+USING DELTA
+COMMENT 'Gold: revenue and order volume per product (FR-21) — PASSED orders only';
+
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.gold_revenue_by_customer (
+    customer_id           INT            NOT NULL,
+    customer_name         STRING         NOT NULL,
+    customer_segment      STRING,
+    total_orders          BIGINT         NOT NULL,
+    total_revenue         DECIMAL(14, 2) NOT NULL,
+    avg_order_value       DECIMAL(10, 2) NOT NULL,
+    lifetime_value_actual DECIMAL(10, 2)
+)
+USING DELTA
+COMMENT 'Gold: revenue metrics per customer (FR-22) — PASSED customers with PASSED orders';
+
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.gold_daily_weekly_trends (
+    period_type     STRING         NOT NULL,  -- 'daily' or 'weekly'
+    period_start    DATE           NOT NULL,
+    total_orders    BIGINT         NOT NULL,
+    total_revenue   DECIMAL(14, 2) NOT NULL,
+    avg_order_value DECIMAL(10, 2) NOT NULL
+)
+USING DELTA
+COMMENT 'Gold: daily and weekly revenue trends (FR-23) — PASSED orders only';
+
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.gold_customer_segmentation (
+    segment_type    STRING         NOT NULL,  -- High-Value | Repeat | One-Time | Inactive
+    customer_count  BIGINT         NOT NULL,
+    avg_revenue     DECIMAL(10, 2) NOT NULL,
+    total_revenue   DECIMAL(14, 2) NOT NULL
+)
+USING DELTA
+COMMENT 'Gold: customer behaviour segments (FR-24) — PASSED customers only';
