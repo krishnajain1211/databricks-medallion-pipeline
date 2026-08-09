@@ -1,12 +1,12 @@
 # Candidate Information
 
-**Name:** [Your Name]
-**Role:** [SE / SSE / ATL/TL / other]
+**Name:** Krishna Jain
+**Role:** SE
 **Primary Technology Stack:** Python / PySpark, SQL, Databricks
 **Primary AI Tool Used:** Cursor
 **Project Option Selected:** Data Pipeline (Medallion Architecture)
-**Assessment Start Date:** [Date]
-**Submission Date:** [Date]
+**Assessment Start Date:** 07/08/2026
+**Submission Date:** 21/08/2026
 
 ## Tools & Environment
 
@@ -29,4 +29,7 @@ Customer Segmentation · Data Quality Pass Rates · Yearly Revenue Trend
 
 ## Setup Summary
 
-_[Quick reference for how to run the pipeline — expanded in README.md. To be completed in Phase 0.]_
+Run order: `generate_sample_data.py` → upload CSVs to Unity Catalog Volume →
+`ingest_all.py` (Bronze) → `create_silver_tables.py` (Silver) →
+`create_gold_tables.py` (Gold) → attach `dashboard_queries.sql` to Databricks SQL Dashboard.
+Full step-by-step instructions in `README.md` and `database/setup-notes.md`.

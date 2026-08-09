@@ -56,6 +56,7 @@ ask if anything's ambiguous; log to `ai-prompts/dashboard.md`.
   the data is there and the guide explains it clearly.
 
 **Evaluation:** Accepted and verified — dashboard live in Databricks (2026-08-09).
+Three manual debugging iterations required during tile configuration (see Debugging Entries 1–3 below).
 
 **Live URL:**
 https://dbc-dee8a4d8-a132.cloud.databricks.com/dashboardsv3/01f193f3b5b01aa793411e6f3897ebd2/published?o=7474645374027427
@@ -79,3 +80,57 @@ https://dbc-dee8a4d8-a132.cloud.databricks.com/dashboardsv3/01f193f3b5b01aa79341
   peaks around 2024–2025 and drops sharply at 2026 — this is because 2026 is
   a **partial year in the generated data** (synthetic orders do not cover a
   full 12 months of 2026), not a data quality or distribution artefact. ✓
+
+---
+
+## Debugging Entry 1: Tile 5 dataset SQL mismatch + wrong X-axis grain
+
+**Symptom:** Tile 5 (Daily Revenue Trend) rendered at monthly granularity; `period_type`
+was not a selectable field in the chart configuration panel.
+
+**Root cause:** The SQL pasted into the Databricks dataset editor differed from the
+repo's `dashboard_queries.sql`. The `WHERE period_type = 'daily'` filter had been applied
+in the pasted variant, removing `period_type` from the output columns. With `period_type`
+absent, the chart defaulted to `MONTHLY(order_date)` on the X-axis.
+
+**Fix:** Re-pasted the exact query from `dashboard_queries.sql`. Set X-axis to plain
+`order_date` (no date truncation). Line chart rendered at correct daily granularity.
+
+**Lesson:** Always copy dataset SQL verbatim from the repo file — any deviation can make
+chart fields unavailable and trigger incorrect auto-configuration.
+
+---
+
+## Debugging Entry 2: Tile 2 histogram axis fields reversed
+
+**Symptom:** Tile 2 (Customer Revenue Distribution) rendered as streaky horizontal bands
+instead of a histogram with vertical bars.
+
+**Root cause:** `total_revenue` was placed on the Y-axis instead of the X-axis. With a
+continuous numeric column on Y and nothing on X, Databricks rendered each row as a
+horizontal streak rather than bucketing into bins.
+
+**Fix (two steps):**
+1. Moved `total_revenue` to X-axis, set to `BIN(2500)`.
+2. Y-axis then had no field — added `Count` to Y-axis.
+Histogram then rendered correctly with five visible bins.
+
+**Lesson:** For Databricks histograms the binned column goes on X-axis, Count on Y-axis.
+Streaky bands = continuous field on the wrong axis.
+
+---
+
+## Debugging Entry 3: Yearly order_date global filter chip affected all tiles
+
+**Symptom:** A `YEARLY(order_date)` filter chip at the top of the dashboard restricted
+all tiles to the selected year when active, causing incomplete data across every tile
+simultaneously.
+
+**Root cause:** Databricks AI/BI Dashboards auto-generate global filter chips for date
+columns found in any tile's dataset. The chip applied dashboard-wide by default.
+
+**Fix:** Used "Reset all to default" on the filter chip panel. All tiles returned to
+their full unfiltered data range with no tile-level changes required.
+
+**Lesson:** Global filter chips on published dashboards can silently restrict all tiles.
+Always document the "Reset all to default" option for dashboard consumers.

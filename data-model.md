@@ -5,8 +5,6 @@
 
 ## Entity Relationship Overview
 
-_[Text-based ERD and Mermaid diagram to be added in Phase 0 / Phase 2.]_
-
 ```
 customers (customer_id PK)
     ↑ FK
@@ -65,23 +63,28 @@ products (product_id PK)
 
 ## Layer-by-Layer Row Counts
 
-_[To be filled in as each phase completes — see P-02 in requirements-analysis.md.]_
+Verified counts from Phase 2 (Bronze), Phase 3 (Silver), and Phase 4 (Gold) Databricks runs.
 
 | Layer | Table | Row count | Notes |
 |---|---|---|---|
-| Source | customers.csv | 10,000 | 120 quality issues |
-| Source | orders.csv | 100,000 | 580 quality issues |
+| Source | customers.csv | 10,000 | 120 quality issues across 4 categories |
+| Source | orders.csv | 100,000 | 580 quality issues across 9 categories |
 | Source | products.csv | 500 | 0 quality issues |
-| Bronze | bronze_customers | _TBD Phase 2_ | Raw copy, unchanged |
-| Bronze | bronze_orders | _TBD Phase 2_ | Raw copy, unchanged |
-| Bronze | bronze_products | _TBD Phase 2_ | Raw copy, unchanged |
-| Silver | silver_customers | _TBD Phase 3_ | Includes quality_check_result |
-| Silver | silver_orders | _TBD Phase 3_ | Includes quality_check_result |
-| Gold | gold_sales_by_product | _TBD Phase 4_ | Aggregated from Silver PASSED |
-| Gold | gold_revenue_by_customer | _TBD Phase 4_ | Aggregated from Silver PASSED |
-| Gold | gold_daily_weekly_trends | _TBD Phase 4_ | Aggregated from Silver PASSED |
-| Gold | gold_customer_segmentation | _TBD Phase 4_ | Aggregated from Silver PASSED |
+| Bronze | bronze_customers | 10,000 | Raw copy, unchanged |
+| Bronze | bronze_orders | 100,000 | Raw copy, unchanged |
+| Bronze | bronze_products | 500 | Raw copy, unchanged |
+| Silver | silver_customers | 10,000 | Same count as Bronze — no rows deleted; `quality_check_result` added; 9,880 PASSED |
+| Silver | silver_orders | 100,000 | Same count as Bronze — no rows deleted; `quality_check_result` added; 99,420 PASSED |
+| Gold | gold_sales_by_product | ≤ 500 | One row per distinct product present in PASSED orders |
+| Gold | gold_revenue_by_customer | ~9,995 | 10,000 customers deduped to 9,995 unique customer_ids (G-08 fix); includes all unique customers |
+| Gold | gold_daily_weekly_trends | 1,923 | 1,682 daily rows + 241 weekly rows; verified SEED=42 (see ai-prompts/gold-layer.md) |
+| Gold | gold_customer_segmentation | 4 | Exactly 4 rows — one per segment type (High-Value, Repeat, One-Time, Inactive) |
 
 ## Silver → Gold Lineage
 
-_[Which Silver columns feed which Gold fields — to be documented in Phase 4.]_
+| Gold table | Source Silver columns | Join / filter |
+|---|---|---|
+| `gold_sales_by_product` | `silver_orders`: `product_id`, `order_id` (COUNT), `total_amount` (SUM, AVG) | INNER JOIN `bronze_products` on `product_id`; WHERE `quality_check_result = 'PASSED'` |
+| `gold_revenue_by_customer` | `silver_customers`: `customer_id` (deduped), `customer_name`, `customer_segment`, `lifetime_value`; `silver_orders`: `customer_id` (JOIN key), `order_id` (COUNT), `total_amount` (SUM, AVG) | CTE deduplication on `customer_id`; orders side: WHERE `quality_check_result = 'PASSED'` |
+| `gold_daily_weekly_trends` | `silver_orders`: `order_date` (GROUP BY day / ISO week), `total_amount` (SUM) | WHERE `quality_check_result = 'PASSED'`; UNION ALL of daily and weekly aggregations |
+| `gold_customer_segmentation` | `silver_customers`: `customer_id` (deduped), `customer_segment`; `silver_orders`: `total_amount` (SUM per customer) | CTE deduplication on `customer_id`; revenue used to assign High-Value / Repeat / One-Time / Inactive tier |

@@ -48,12 +48,18 @@ Rows passing all checks receive: `PASSED`
 
 ## Quality Metrics Report
 
-_[Format and output location to be documented in Phase 3.]_
+Produced by `create_silver_tables.py` as a Spark DataFrame, displayed inline via
+`display()` in the Databricks notebook, and written to
+`workspace.ecommerce_medallion.silver_quality_metrics` for downstream querying.
+Dashboard Tile 4 ("Data Quality Checks — Rows Failed by Type") sources from this table.
+
+Counts below are combined across all entities per check type. Referential Integrity and
+Business Logic apply to orders only; all others apply to both customers and orders.
 
 | Check | Total rows checked | Passed | Failed | Pass rate |
 |---|---|---|---|---|
-| Completeness | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| Uniqueness | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| Type Validation | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| Referential Integrity | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
-| Business Logic | _TBD_ | _TBD_ | _TBD_ | _TBD_ |
+| Completeness | 110,000 | 109,650 | 350 (50 customers + 300 orders) | 99.68% |
+| Uniqueness | 110,000 | 109,970 | 30 (10 customers + 20 orders) | 99.97% |
+| Type Validation | 110,000 | 109,830 | 170 (60 customers + 110 orders) | 99.85% |
+| Referential Integrity | 100,000 | 99,920 | 80 (orders only) | 99.92% |
+| Business Logic | 100,000 | 99,930 | 70 (orders only) | 99.93% |
