@@ -11,13 +11,55 @@ CREATE SCHEMA IF NOT EXISTS workspace.ecommerce_medallion
 COMMENT 'E-commerce medallion pipeline — Bronze, Silver, and Gold tables';
 
 -- ── BRONZE TABLES ────────────────────────────────────────────────────────────
+-- Raw ingestion tables — schema mirrors source CSVs exactly.
+-- All columns nullable to preserve seeded defects (NULLs, etc.) unchanged.
 
--- Implementation will be added in Phase 2.
--- Planned tables:
---   workspace.ecommerce_medallion.bronze_customers
---   workspace.ecommerce_medallion.bronze_orders
---   workspace.ecommerce_medallion.bronze_products
---   workspace.ecommerce_medallion.bronze_ingestion_log
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.bronze_customers (
+    customer_id       INT,
+    customer_name     STRING,
+    email             STRING,
+    country           STRING,
+    signup_date       DATE,
+    customer_segment  STRING,
+    lifetime_value    DECIMAL(10, 2)
+)
+USING DELTA
+COMMENT 'Bronze: raw customers data ingested from customers.csv — no transformations applied';
+
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.bronze_orders (
+    order_id      INT,
+    customer_id   INT,
+    order_date    DATE,
+    product_id    INT,
+    quantity      INT,
+    unit_price    DECIMAL(10, 2),
+    total_amount  DECIMAL(12, 2),
+    order_status  STRING,
+    payment_date  DATE            -- nullable: Pending orders have no payment date
+)
+USING DELTA
+COMMENT 'Bronze: raw orders data ingested from orders.csv — no transformations applied';
+
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.bronze_products (
+    product_id      INT,
+    product_name    STRING,
+    category        STRING,
+    price           DECIMAL(10, 2),
+    cost            DECIMAL(10, 2),
+    stock_quantity  INT,
+    reorder_level   INT
+)
+USING DELTA
+COMMENT 'Bronze: raw products data ingested from products.csv — no transformations applied';
+
+CREATE TABLE IF NOT EXISTS workspace.ecommerce_medallion.bronze_ingestion_log (
+    table_name          STRING    NOT NULL,
+    source_path         STRING    NOT NULL,
+    row_count           BIGINT    NOT NULL,
+    ingestion_timestamp TIMESTAMP NOT NULL
+)
+USING DELTA
+COMMENT 'Append-only log of every Bronze ingestion run: table name, source path, row count, timestamp';
 
 -- ── SILVER TABLES ────────────────────────────────────────────────────────────
 
