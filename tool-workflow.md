@@ -235,6 +235,11 @@ The core pattern transfers directly, with three additions for production:
   after each pipeline change — not just for the initial build, but for every schema
   change, bugfix, and threshold adjustment thereafter.
 
+For the concrete orchestration design — Job DAG structure, cron schedule, failure
+handling, Bronze overwrite→merge migration, and how the FR-26 cross-check and
+two-tier tests map to production job tasks — see the **Production Orchestration Design**
+section in `design-notes.md`.
+
 ---
 
 ## Lessons Learned

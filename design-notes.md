@@ -183,3 +183,97 @@ See `debugging-notes.md` for the full chronological bug log (9 entries).
 This produced measurable results: the Bronze `%run` silent failure was logged in Phase 2
 and the lesson propagated to Silver, Gold, and the integration test notebook on first
 write — none of those files required a `%run` debugging round.
+
+---
+
+## Production Orchestration Design
+
+This section describes how the pipeline would run as a scheduled production job using
+Databricks Jobs/Workflows rather than being triggered manually.
+
+### Job DAG structure
+
+A single Databricks Job would contain four tasks with explicit `depends_on` edges:
+
+```
+[1. Bronze ingest]
+        │ on success
+        ▼
+[2. Silver quality checks]
+        │ on success
+        ▼
+[3. Gold aggregations + FR-26 cross-check]
+        │ on success
+        ▼
+[4. Dashboard refresh (SQL Warehouse query cache invalidation)]
+```
+
+Silver never starts unless Bronze exits successfully; Gold never starts unless Silver
+exits successfully. Databricks Jobs enforces this natively via task dependencies — no
+custom orchestration logic is needed. The FR-26 `AssertionError` in
+`create_gold_tables.py` already causes Task 3 to fail loudly if revenue conservation
+breaks, which blocks Task 4 automatically. Wrong dashboard numbers are never silently
+published.
+
+### Schedule
+
+A daily cron schedule attached to the Job — e.g., `0 3 * * *` (03:00 UTC) — gives the
+pipeline a nightly run after the previous day's orders have closed. The schedule is
+configured on the Job, not on any individual notebook, so a single toggle pauses the
+entire pipeline.
+
+### Failure handling
+
+- **Task retries:** Each task configured with 1–2 automatic retries and an exponential
+  backoff (e.g., 5 min, then 15 min). Handles transient serverless cold-start failures
+  or momentary Volume unavailability without paging anyone.
+- **Alerting:** Job-level email/webhook alert fires on any task failure after retries
+  are exhausted. The alert goes to the data engineering team, not just the job owner.
+- **`bronze_ingestion_log` as the first failure signal:** The Bronze task writes a row to
+  `bronze_ingestion_log` with row count and timestamp before exiting. A downstream
+  monitoring query can detect a missing log entry (Bronze didn't run) or a row-count
+  anomaly (source data truncated) independently of whether the task itself raised an
+  error — this matters for partial-write failures that don't throw an exception.
+- **FR-26 as the Gold-layer gate:** The revenue cross-check `AssertionError` in
+  `create_gold_tables.py` is not just an assessment artifact — it is exactly what a
+  scheduled job's Task 3 relies on to decide whether that day's Gold tables are trusted.
+  If the cross-check fails, Task 3 fails, Task 4 (dashboard refresh) never runs, and the
+  alert fires. Analysts see yesterday's numbers rather than corrupted ones. This is the
+  correct failure mode.
+
+### What would need to change from the current design
+
+**Bronze: overwrite → append/merge keyed on ingestion date.**
+The current `overwrite + overwriteSchema` mode is correct for a one-time seed load but
+wrong for incremental production data. In production, new daily order files would be
+merged into Bronze using `MERGE INTO ... ON (order_id)` for fact tables, or
+`INSERT INTO` with a date partition for append-only patterns. The explicit StructType
+schema in each ingest script already makes this change low-risk — the schema is locked,
+not inferred.
+
+**Data source: static Volume files → event-driven or scheduled delivery.**
+Rather than manually uploaded CSVs, production would receive daily files from an upstream
+system (e.g., an S3 prefix with a `YYYY-MM-DD` date partition, or a Kafka topic consumed
+via Auto Loader). The `BASE_VOLUME_PATH` constant in each Bronze script is the single
+change point — the rest of the ingest logic stays identical.
+
+**Idempotency for safe retries.**
+Silver and Gold already write with `overwrite` mode, so re-running them after a partial
+failure produces the same output — they are idempotent by design. Bronze needs the
+append/merge change above to become idempotent (i.e., re-ingesting the same date's file
+must not duplicate rows). With a `MERGE ON order_id` pattern, re-running Bronze is safe.
+
+### Tests as production gates
+
+The two-tier test suite built for this assessment maps directly onto production job tasks:
+
+- **Tier 1 (pandas/pytest):** Runs in CI on every pull request that changes Silver logic
+  or Gold SQL. No Databricks connection required — fast feedback before any code lands.
+- **Tier 2 (`integration_test_silver_gold.py`):** Promoted to a Job task that runs after
+  Gold completes each night, writing pass/fail results to a `pipeline_run_log` Delta
+  table. A monitoring dashboard reads this table and flags any day where the integration
+  test did not produce `ALL PASSED`.
+
+The FR-26 revenue cross-check and the Silver row-count conservation assertion are the
+canonical checks a data team would trust to gate whether a daily pipeline run is valid.
+They were built into the orchestrators from the start — not bolted on after the fact.
